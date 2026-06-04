@@ -1,0 +1,41 @@
+# .github/workflows/umbrella.yml
+# INFRA-05: builds related repos against this PR on every PR to main.
+#
+# Scaffolded for llm-agent-comm to build ITSELF only — a freshly created repo has
+# no consumers yet. As cross-repo edges appear (this repo requires a sibling,
+# or a sibling requires this one), add the matching `Checkout <sibling>` +
+# `Build <sibling>` steps here, mirroring an existing sibling's umbrella.yml
+# (e.g. llm-agent-contract's), and wire a `go work init` step pointing every
+# module at this PR's checkout.
+name: umbrella
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: umbrella-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-repo-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout llm-agent-comm (this PR)
+        uses: actions/checkout@v4
+        with:
+          path: llm-agent-comm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: llm-agent-comm/go.mod
+          cache: false
+
+      - name: Build llm-agent-comm (this PR)
+        run: |
+          cd llm-agent-comm
+          GOWORK=off go vet ./...
+          GOWORK=off go build ./...
+          GOWORK=off go test ./... -count=1
